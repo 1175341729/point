@@ -1,0 +1,28 @@
+<?xml version="1.0" encoding="UTF-8" ?>
+<!DOCTYPE mapper PUBLIC "-//mybatis.org//DTD Mapper 3.0//EN" "http://mybatis.org/dtd/mybatis-3-mapper.dtd" >
+<mapper namespace="com.point.cart.mapper.AbnormalCartPointExMapper" >
+  <!--省市区联动查询(新)-->
+  <select id="areaList" parameterType="map" resultType="map">
+    SELECT
+    province
+    <if test="level &gt; 1">
+      ,city
+    </if>
+    <if test="level &gt; 2">
+    ,area
+    </if>
+    FROM media_device_abnormal_information
+    <where>
+      <if test="'province'.equals(areaType) &amp;&amp; null != areaName">
+        AND province = #{areaName}
+      </if>
+      <if test="'city'.equals(areaType) &amp;&amp; null != areaName">
+        AND province = #{areaName}
+      </if>
+      <if test="'area'.equals(areaType) &amp;&amp; null != areaName">
+        AND city = #{areaName}
+      </if>
+    </where>
+    GROUP BY province,city,area
+  </select>
+</mapper>

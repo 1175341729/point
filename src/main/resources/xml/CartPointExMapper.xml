@@ -1,0 +1,955 @@
+<?xml version="1.0" encoding="UTF-8" ?>
+<!DOCTYPE mapper PUBLIC "-//mybatis.org//DTD Mapper 3.0//EN" "http://mybatis.org/dtd/mybatis-3-mapper.dtd" >
+<mapper namespace="com.point.cart.mapper.CartPointExMapper" >
+  <!--省市区查询(未使用)-->
+  <select id="searchArea" resultType="map" parameterType="map">
+    <if test="'province'.equals(areaType)">
+      SELECT
+        (SELECT substring(a.adcode FROM 1 FOR 2) || '0000' AS code FROM screen_media_information a WHERE a.province = lsb.province LIMIT 1),lsb.province,'province' AS level FROM
+        (SELECT province FROM screen_media_information GROUP BY province) lsb;
+    </if>
+
+    <if test="'city'.equals(areaType)">
+      SELECT
+        (SELECT substring(a.adcode FROM 1 FOR 4) || '00' AS code FROM screen_media_information a WHERE a.province = lsb.province AND a.city = lsb.city LIMIT 1),lsb.city ,'city' AS level FROM
+        (SELECT province,city FROM screen_media_information WHERE province = #{areaName} GROUP BY province,city) lsb;
+    </if>
+
+    <if test="'area'.equals(areaType)">
+      SELECT
+      (SELECT a.adcode FROM screen_media_information a WHERE a.province = lsb.province AND a.city = lsb.city AND a.area = lsb.area LIMIT 1),lsb.area,'area' AS level FROM
+      (SELECT province,city,area FROM screen_media_information WHERE city = #{areaName} GROUP BY province,city,area) lsb;
+    </if>
+  </select>
+
+  <!--省市区联动查询(新)-->
+  <select id="searchAreaNew" parameterType="map" resultType="map">
+    SELECT
+    province
+    <if test="level &gt; 1">
+      ,city
+    </if>
+    <if test="level &gt; 2">
+    ,area
+    </if>
+    FROM screen_media_information
+    <where>
+      <if test="'province'.equals(areaType) &amp;&amp; null != areaName">
+        AND province = #{areaName}
+      </if>
+      <if test="'city'.equals(areaType) &amp;&amp; null != areaName">
+        AND province = #{areaName}
+      </if>
+      <if test="'area'.equals(areaType) &amp;&amp; null != areaName">
+        AND city = #{areaName}
+      </if>
+      <!--只获取有效的数据-->
+      <if test="cartNumber != null &amp;&amp; !''.equals(cartNumber)">
+        AND city IN
+          (SELECT city_name
+            FROM t_cart_point
+            WHERE cart_number = #{cartNumber}
+            AND point_type = 0
+            GROUP BY city_name)
+      </if>
+    </where>
+    GROUP BY province,city,area
+  </select>
+
+  <!-- 商家类型-->
+  <select id="searchSellerTypeList" resultType="map">
+    SELECT seller_type AS sellerType FROM screen_media_information WHERE seller_type &lt;&gt; '' GROUP BY seller_type
+  </select>
+
+  <!--行业类型-->
+  <select id="searchTradeTypeList" resultType="map">
+    SELECT trade FROM screen_media_information WHERE trade &lt;&gt; '' GROUP BY trade;
+  </select>
+
+   <!--刊位质量-->
+   <select id="searchQuality" resultType="map">
+      SELECT
+        quality
+      FROM
+        screen_media_information
+      WHERE
+        quality
+      IS NOT NULL
+      AND quality &lt;&gt; ''
+      GROUP BY quality
+      ORDER BY quality
+   </select>
+
+  <!--商圈-->
+  <select id="searchBusinessAreaList" parameterType="map" resultType="map">
+    SELECT
+      business_area
+    FROM
+      screen_media_information
+    WHERE business_area &lt;&gt; ''
+    <!--投放区域(区)-->
+    <if test="area != null &amp;&amp; !''.equals(area)">
+      AND area = #{area}
+    </if>
+
+    <!--投放区域(市)-->
+    <if test="city != null &amp;&amp; !''.equals(city)">
+      AND city = #{city}
+    </if>
+
+    <!--投放区域(省)-->
+    <if test="province != null &amp;&amp; !''.equals(province)">
+      AND province = #{province}
+    </if>
+    GROUP BY business_area;
+  </select>
+
+  <!--设备类型-->
+  <select id="searchDev" resultType="map">
+    SELECT
+      dev_type,screen_name
+    FROM
+      screen_media_information
+    WHERE
+      is_sale = 0
+    GROUP BY dev_type,screen_name
+  </select>
+
+  <!--按照条件查询满足的屏信息-->
+  <select id="searchScreenMediaInfo" parameterType="com.point.cart.message.req.SearchScreenMediaInfoReq" resultType="com.point.cart.message.rsp.ScreenMediaInfoRsp">
+    SELECT
+      screen_number,substring(adcode FROM 1 FOR 4) || '00' AS cityCode,
+      city AS cityName,avg_price AS avgPrice,address,business_area AS businessArea,
+      dev_type AS devType,mac,resolution,s_lant AS lant,
+      seller_type AS sellerType,seller_name AS sellerName,trade,quality,
+      dev_install_model AS direction ,photo
+    FROM
+      screen_media_information
+    <where>
+      <!-- 如果是查看详情区全部选中点位的数据 -->
+      <if test="!detail">
+        AND media_resource_status = '正常'
+        AND is_sale = 0
+      </if>
+      <!--消费水平-->
+      <if test="startConsume != null">
+        AND avg_price &gt;= #{startConsume}
+      </if>
+      <if test="endConsume != null">
+        AND avg_price &lt;= #{endConsume}
+      </if>
+
+      <!--日客流量-->
+      <if test="startCustomerFlow != null">
+        AND daily_customer_flow &gt;= #{startCustomerFlow}
+      </if>
+      <if test="endCustomerFlow != null">
+        AND daily_customer_flow &lt;= #{endCustomerFlow}
+      </if>
+
+      <!--投放区域(区)-->
+      <if test="area != null &amp;&amp; !''.equals(area)">
+        AND area = #{area}
+      </if>
+
+      <!--投放区域(市)-->
+      <if test="city != null &amp;&amp; !''.equals(city)">
+        AND city = #{city}
+      </if>
+
+      <!--投放区域(省)-->
+      <if test="province != null &amp;&amp; !''.equals(province)">
+        AND province = #{province}
+      </if>
+
+      <!--1、销控 如果是查询赠送点位，只获取选择点位有效城市下的数据-->
+      <if test="cartNumber != null &amp;&amp; !''.equals(cartNumber)">
+        <if test="pointType != null &amp;&amp; pointType == 1 &amp;&amp; system == 1">
+          AND city IN (SELECT city_name FROM t_cart_point WHERE cart_number = #{cartNumber} AND point_type = 0 GROUP BY city_name)
+        </if>
+      </if>
+
+      <!--刊位质量-->
+      <if test="quality != null &amp;&amp; quality.size() &gt; 0">
+        AND quality IN
+        <foreach collection="quality" item="item" open="(" close=")" separator=",">
+          #{item}
+        </foreach>
+      </if>
+
+      <!--商圈范围-->
+      <if test="businessArr != null &amp;&amp; businessArr.size() &gt; 0">
+        AND business_area IN
+        <foreach collection="businessArr" item="item" open="(" close=")" separator=",">
+          #{item}
+        </foreach>
+      </if>
+
+      <!--设备mac-->
+      <if test="mac != null &amp;&amp; !''.equals(mac)">
+        AND mac LIKE CONCAT(CONCAT('%', #{mac}), '%')
+      </if>
+
+      <!--商家名称-->
+      <if test="sellerName != null &amp;&amp; !''.equals(sellerName)" >
+        AND seller_name LIKE CONCAT(CONCAT('%', #{sellerName}), '%')
+      </if>
+
+      <!--商家类型-->
+      <if test="sellerType != null &amp;&amp; sellerType.size() &gt; 0">
+        AND seller_type IN
+        <foreach collection="sellerType" item="item" open="(" close=")" separator=",">
+          #{item}
+        </foreach>
+      </if>
+
+      <!--行业类型-->
+      <if test="tradeArr != null &amp;&amp; tradeArr.size() &gt; 0">
+        AND trade IN
+        <foreach collection="tradeArr" item="item" open="(" close=")" separator=",">
+          #{item}
+        </foreach>
+      </if>
+
+      <!--设备类型-->
+      <if test="devType != null &amp;&amp; !''.equals(devType) &amp;&amp; !'全部'.equals(devType)">
+        AND dev_type = #{devType}
+      </if>
+
+      <!--屏幕位置-->
+      <if test="screenLocation != null &amp;&amp; !''.equals(screenLocation) &amp;&amp; !'全部'.equals(screenLocation)">
+        AND screen_name = #{screenLocation}
+      </if>
+
+      <!--屏方向-->
+      <if test="direction != null &amp;&amp; !''.equals(direction)">
+        AND dev_install_model = #{direction}
+      </if>
+
+      <!--设备状态-->
+      <if test="deviceState != null &amp;&amp; !''.equals(deviceState)">
+        AND network = #{deviceState}
+      </if>
+
+      <!--普通筛选需要验证投放周期 从生成订单的真实数据获取 0表示草稿 1表示正式订单 赠送和选点都是需要计算时间-->
+      <if test="selectMode != null &amp;&amp; (playMode == null || playMode != 0)">
+        AND screen_number NOT IN (
+        SELECT screen_number
+        <!--新版直接从购物车中选择-->
+        <!--FROM t_order_cart_point-->
+        FROM t_cart_point
+        <where>
+          AND start_time &lt;= #{endTime}
+          AND end_time &gt;= #{startTime}
+          <!--如果购物车编号不为空，则需要占用当前购物车时间-->
+          <if test="cartNumber != null">
+            AND (state = 1 OR cart_number = #{cartNumber})
+          </if>
+          <if test="cartNumber == null || ''.equals(cartNumber)">
+            AND state = 1
+          </if>
+        </where>
+        GROUP BY screen_number HAVING (#{totalTime} - SUM(time_total)) &lt; (#{number} * #{timeLength})
+        )
+      </if>
+
+      <!--如果添加成功需要排除 2017/11/27修改 通用 如果是详情detail(true)不需要排除-->
+      <if test="!detail &amp;&amp; cartNumber != null">
+        AND screen_number NOT IN (
+        SELECT
+        screen_number
+        FROM t_cart_point
+        <where>
+          <if test="cartNumber != null">
+            AND cart_number = #{cartNumber}
+          </if>
+          <if test="pointType != null">
+            AND point_type = #{pointType}
+          </if>
+          <if test="startTime != null">
+            AND start_time = #{startTime}
+          </if>
+          <if test="endTime != null">
+            AND end_time = #{endTime}
+          </if>
+          <if test="timeLength != null">
+            AND time_length = #{timeLength}
+          </if>
+          <if test="number != null">
+            AND number = #{number}
+          </if>
+        </where>
+        )
+      </if>
+
+      <!--屏资产编号-->
+      <if test="screenNumber != null &amp;&amp; !''.equals(screenNumber)">
+        AND screen_number LIKE CONCAT(CONCAT('%', #{screenNumber}), '%')
+      </if>
+
+      <!--屏资产编号集合-->
+      <if test="screenNumberList != null">
+        AND screen_number IN
+        <foreach collection="screenNumberList" item="item" open="(" close=")" separator=",">
+          #{item}
+        </foreach>
+      </if>
+    </where>
+  </select>
+
+  <!--添加数据到购物车-->
+  <insert id="addPointCart" parameterType="com.point.cart.model.CartPoint">
+    INSERT INTO
+      t_cart_point(cart_number,user_id,time_id,time_length,city_code,
+      city_name,screen_number,number,purpose,state,start_time,end_time,
+      create_time,time_bucket,select_mode,play_mode,system,point_type,
+      time_total,order_type)
+    VALUES
+	<foreach collection="cartPointList" item="item" separator=",">
+      (#{item.cartNumber},#{item.userId},#{item.timeId},#{item.timeLength},#{item.cityCode},
+      #{item.cityName},#{item.screenNumber},#{item.number},#{item.purpose},#{item.state},#{item.startTime},#{item.endTime},
+      #{item.createTime},#{item.timeBucket},#{item.selectMode},#{item.playMode},#{item.system},#{item.pointType},
+      #{item.timeTotal},#{item.orderType})
+    </foreach>
+  </insert>
+
+  <!--根据购物车编号查询屏信息-->
+  <select id="getCartInfo" resultType="map">
+    SELECT
+      city_code AS cityCode,city_name AS cityName,
+      time_length AS timeLength,number,
+      array_to_string(group_concat(screen_number), ',') AS screenNumberArr,
+      array_to_string(group_concat(cart_point_id), ',') AS cartPointId,
+      start_time AS startTime,end_time AS endTime,
+      point_type AS pointType,system,
+      count(*) AS totalPoint
+    FROM
+      t_cart_point
+    WHERE
+      cart_number = #{cartNumber}
+    GROUP BY
+      city_code,city_name,time_length,number,start_time,end_time,point_type,system
+    ORDER BY
+      city_name,time_length,number
+  </select>
+
+  <!--播控系统查询销控系统中点位信息-->
+  <select id="getCartInfoByParam" resultType="map">
+     SELECT
+      city_code AS cityCode,city_name AS cityName,
+      time_length AS timeLength,number,
+      array_to_string(group_concat(screen_number), ',') AS screenNumberArr,
+      array_to_string(group_concat(cart_point_id), ',') AS cartPointId,
+      start_time AS startTime,end_time AS endTime,
+      point_type AS pointType,system,
+      count(*) AS totalPoint
+    FROM
+      t_cart_point
+    WHERE
+      cart_number = #{cartNumber}
+    <if test="number != null">
+      AND number = #{number}
+    </if>
+    <if test="timeLength != null">
+      AND time_length = #{timeLength}
+    </if>
+    <if test="startTime != null">
+      AND start_time = #{startTime}
+    </if>
+    <if test="endTime != null">
+      AND end_time = #{endTime}
+    </if>
+    <if test="system != null">
+      AND system = #{system}
+    </if>
+    <if test="pointType != null">
+      AND point_type = #{pointType}
+    </if>
+    <if test="state != null">
+      AND state = 0
+    </if>
+    GROUP BY
+      city_code,city_name,time_length,number,start_time,end_time,point_type,system
+    ORDER BY
+      city_name,time_length,number
+  </select>
+
+  <!--提交订单-->
+  <select id="getCartInfoByOrder" resultType="map">
+    SELECT
+    time_length AS timeLength,number,
+    array_to_string(group_concat(screen_number), ',') AS screenNumberArr,
+    array_to_string(group_concat(cart_point_id), ',') AS cartPointId,
+    start_time AS startTime,end_time AS endTime,
+    point_type AS pointType,system,
+    count(*) AS totalPoint
+    FROM
+    t_cart_point
+    WHERE
+    cart_number = #{cartNumber}
+    <if test="number != null">
+      AND number = #{number}
+    </if>
+    <if test="timeLength != null">
+      AND time_length = #{timeLength}
+    </if>
+    <if test="startTime != null">
+      AND start_time = #{startTime}
+    </if>
+    <if test="endTime != null">
+      AND end_time = #{endTime}
+    </if>
+    <if test="system != null">
+      AND system = #{system}
+    </if>
+    <if test="pointType != null">
+      AND point_type = #{pointType}
+    </if>
+    <if test="state != null">
+      AND state = 0
+    </if>
+    GROUP BY
+    time_length,number,start_time,end_time,point_type,system
+  </select>
+
+  <!--删除购物车中屏信息-->
+  <delete id="deleteCartScreen" parameterType="map">
+    DELETE
+    FROM
+      t_cart_point
+    WHERE
+      cart_number = #{cartNumber}
+    AND
+      point_type = #{pointType}
+    AND screen_number in
+    <foreach collection="screenList" item="item" open="(" close=")" separator=",">
+      #{item}
+    </foreach>
+  </delete>
+
+  <!--删除满足条件的点位-->
+  <delete id="deleteCartPoint" parameterType="map">
+    DELETE
+    FROM
+    t_cart_point
+    WHERE
+    cart_number = #{cartNumber}
+    AND
+    city_name = #{cityName}
+    AND
+    time_length = #{timeLength}
+    AND
+    number = #{number}
+    AND
+    start_time = #{startTime}
+    AND
+    end_time = #{endTime}
+    AND
+    <if test="pointType == 0">
+      (point_type = #{pointType} OR  point_type IS NULL )
+    </if>
+    <if test="pointType == 1">
+      point_type = #{pointType}
+    </if>
+    <if test="system != null">
+      AND system = #{system}
+    </if>
+    <if test="screenList != null">
+      AND screen_number in
+      <foreach collection="screenList" item="item" open="(" close=")" separator=",">
+        #{item}
+      </foreach>
+    </if>
+  </delete>
+
+  <!--删除点位类型下所有点位-->
+  <delete id="deleteAllPointType" parameterType="map">
+    DELETE
+    FROM
+    t_cart_point
+    WHERE
+    cart_number = #{cartNumber}
+    AND
+    point_type = #{pointType}
+    <if test="system != null">
+      AND system = #{system}
+    </if>
+  </delete>
+
+  <!--查询满足条件的购物车屏信息-->
+  <select id="searchCartPointList" parameterType="map" resultType="com.point.cart.model.CartPoint">
+    SELECT
+      cart_point_id AS cartPointId,cart_number AS cartNumber,user_id AS userId,
+      time_id AS timeId,time_length AS timeLength,city_code AS cityCode,
+      city_name AS cityName,screen_number AS screenNumber,number,
+      purpose,state,start_time AS startTime,end_time AS endTime,
+      create_time AS createTime,time_bucket AS timeBucket,
+      select_mode AS selectMode,play_mode AS playMode,
+      system,point_type AS pointType,order_type AS orderType
+    FROM t_cart_point
+    <where>
+      <if test="system != null">
+        AND system = #{system}
+      </if>
+      <if test="pointType != null">
+        AND point_type = #{pointType}
+      </if>
+      <if test="cartNumber != null">
+        AND cart_number = #{cartNumber}
+      </if>
+      <if test="cityName != null">
+        AND city_name = #{cityName}
+      </if>
+      <if test="number != null">
+        AND number = #{number}
+      </if>
+      <if test="timeLength != null">
+        AND time_length = #{timeLength}
+      </if>
+      <if test="startTime != null">
+        AND start_time = #{startTime}
+      </if>
+      <if test="endTime != null">
+        AND end_time = #{endTime}
+      </if>
+    </where>
+  </select>
+
+  <!--将购物车中的数据发布到订单中 废弃-->
+  <insert id="confirmOrder" parameterType="map">
+    INSERT INTO
+      t_order_cart_point(cart_number,user_id,time_id,time_length,city_code,
+      city_name,screen_number,number,purpose,state,start_time,end_time,
+      create_time,time_bucket,select_mode,play_mode,system,point_type)
+    VALUES
+    <foreach collection="cartPointList" item="item" separator=",">
+      (#{item.cartNumber},#{item.userId},#{item.timeId},#{item.timeLength},#{item.cityCode},
+      #{item.cityName},#{item.screenNumber},#{item.number},#{item.purpose},#{state},#{item.startTime},#{item.endTime},
+      #{item.createTime},#{item.timeBucket},#{item.selectMode},#{item.playMode},#{item.system},#{item.pointType})
+    </foreach>
+  </insert>
+
+  <!--删除对应表中当前购物车的数据-->
+  <delete id="emptyTable" parameterType="map">
+    DELETE FROM ${table} WHERE cart_number = #{cartNumber}
+  </delete>
+
+  <!--验证选中的能否添加到购物车中-->
+  <select id="checkHasConfirmOrder" parameterType="map" resultType="String">
+    SELECT
+      screen_number
+    FROM
+      t_cart_point
+    WHERE
+      state = 1
+    <!--<if test="system != null">-->
+      <!-- AND system = #{system} -->
+    <!--</if>-->
+    <!--计算点位时需要排除自身已有的数据-->
+    <if test="cartPointIdList != null &amp;&amp; cartPointIdList.size() > 0">
+      AND cart_point_id NOT IN
+      <foreach collection="cartPointIdList" item="item" open="(" close=")" separator=",">
+        #{item}
+      </foreach>
+    </if>
+    AND start_time &lt;= #{endTime}
+    AND end_time &gt;= #{startTime}
+    <!--如果存在屏编号直接查询当前屏编号进行添加通过程序进行筛选-->
+    <!--<if test="screenNumberList != null &amp;&amp; screenNumberList.size() > 0 &amp;&amp; screenNumberList.size() &lt;= 1000">
+      AND screen_number IN
+      <foreach collection="screenNumberList" item="item" open="(" close=")" separator=",">
+        #{item}
+      </foreach>
+    </if>-->
+    <!--time_total 其实不需要添加字段 sum能够实现条件不一致的算法-->
+    GROUP BY screen_number HAVING (#{totalTime} - SUM(time_total)) &lt; (#{number} * #{timeLength})
+  </select>
+
+  <!--将订单中数据copy到购物车中 废弃-->
+  <insert id="copyCartPoint">
+    INSERT INTO
+      t_cart_point(cart_number,user_id,time_id,time_length,city_code,
+      city_name,screen_number,number,purpose,state,start_time,end_time,
+      create_time,time_bucket,select_mode,play_mode,system,point_type)
+    SELECT
+      cart_number,user_id,time_id,time_length,city_code,
+      city_name,screen_number,number,purpose,state,start_time,end_time,
+      create_time,time_bucket,select_mode,play_mode,system,point_type
+    FROM
+      t_order_cart_point WHERE cart_number = #{cartNumber}
+  </insert>
+
+  <!--系统导出excel-->
+  <select id="exportExcel" resultType="map">
+    SELECT
+      b.screen_number,b.mac,b.seller_name,b.address
+      ,b.business_area,b.avg_price,b.resolution
+      ,b.dev_name,b.trade,b.province,b.city,b.area
+      ,a.point_type AS pointType,b.media_resource_status AS state
+    FROM
+      t_cart_point a INNER JOIN screen_media_information b ON a.screen_number = b.screen_number
+    WHERE
+      a.cart_number = #{cartNumber}
+    <if test="number != null">
+      AND a.number = #{number}
+    </if>
+    <if test="timeLength != null">
+      AND a.time_length = #{timeLength}
+    </if>
+    <if test="startTime != null">
+      AND a.start_time = #{startTime}
+    </if>
+    <if test="endTime != null">
+      AND a.end_time = #{endTime}
+    </if>
+    <if test="system != null">
+      AND a.system = #{system}
+    </if>
+  </select>
+
+  <!--监控报告导出excel-->
+  <select id="exportSupervisionExcel" resultType="map">
+    SELECT
+    substring(b.property_number from (position('-' in b.property_number) + 1)) AS property_number
+    ,b.mac,b.seller_name,b.address
+    ,b.business_area,b.avg_price,b.resolution
+    ,b.dev_name,b.trade,b.province,b.city,b.area
+    ,a.point_type AS pointType,b.media_resource_status AS state
+    ,(CASE WHEN a.create_time = (SELECT min(create_time) FROM t_cart_point WHERE cart_number = #{cartNumber}) AND a.state = 1 THEN '是' ELSE '否' END) AS custom
+    FROM
+    t_cart_point a RIGHT JOIN screen_media_information b ON a.screen_number = b.screen_number
+    WHERE
+    a.cart_number = #{cartNumber}
+    <if test="number != null">
+      AND a.number = #{number}
+    </if>
+    <if test="timeLength != null">
+      AND a.time_length = #{timeLength}
+    </if>
+    <if test="startTime != null">
+      AND a.start_time = #{startTime}
+    </if>
+    <if test="endTime != null">
+      AND a.end_time = #{endTime}
+    </if>
+    <if test="system != null">
+      AND a.system = #{system}
+    </if>
+  </select>
+
+  <!--获取订单中所有购物车编号(临时)-->
+  <select id="getOrderCartNumber" resultType="map">
+    SELECT
+      cart_number AS cartNumber
+    FROM
+      <!--t_order_cart_point-->
+      t_cart_point
+    GROUP BY cart_number
+  </select>
+
+  <!--屏信息-->
+  <select id="getScreenByCity" resultType="map">
+    SELECT
+      (screen_number || '_' || city) as cityInfo,substring(adcode FROM 1 FOR 4) || '00' AS cityCode
+    FROM
+      screen_media_information
+    WHERE
+      media_resource_status = '正常'
+    AND is_sale = 0
+    AND city = #{cityName}
+  </select>
+
+  <!-- 获取屏不可用的数据 -->
+  <select id="searchScreenState" resultType="map">
+    SELECT
+      screen_number,media_resource_status
+    FROM
+      screen_media_information
+    WHERE media_resource_status != '正常'
+  </select>
+
+  <!--编辑购物车验证-->
+  <select id="checkNumber" resultType="int">
+    SELECT count(*) FROM t_cart_point
+    WHERE cart_point_id not in
+	(SELECT a.cart_point_id FROM t_cart_point a
+      WHERE a.cart_number = #{cartNumber}
+	  AND a.city_name = #{targetData.cityName} AND a.time_length = #{targetData.timeLength} AND a.number = #{targetData.number}
+	  AND a.start_time = #{targetData.startTime} AND a.end_time = #{targetData.endTime}
+      AND a.point_type = #{pointType}
+      <if test="system != null">
+        AND a.system = #{system}
+      </if>
+    )
+    AND cart_number = #{cartNumber}
+    AND city_name = #{putData.cityName} AND time_length = #{putData.timeLength} AND number = #{putData.number}
+    AND start_time = #{putData.startTime} AND end_time = #{putData.endTime}
+    AND point_type = #{pointType}
+    <if test="system != null">
+      AND system = #{system}
+    </if>
+  </select>
+
+  <!--修改购物车基本信息-->
+  <update id="modifyCartPoint">
+    UPDATE
+      t_cart_point
+    SET
+      time_length = #{putData.timeLength},
+      number = #{putData.number},
+      <!--刊位类型(数量大于1)-->
+      <if test="putData.purpose != null">
+        purpose = #{putData.purpose},
+      </if>
+      start_time = #{putData.startTime},
+      end_time = #{putData.endTime}
+    WHERE cart_number =#{cartNumber}
+    AND city_name = #{targetData.cityName}
+    AND time_length = #{targetData.timeLength}
+    AND number = #{targetData.number}
+    AND start_time = #{targetData.startTime}
+    AND end_time = #{targetData.endTime}
+    AND point_type = #{pointType}
+    <if test="system != null">
+        AND system = #{system}
+    </if>
+  </update>
+
+  <!--获取最小时间和最大时间 只取选择的点位-->
+  <select id="getDistrictByCartNumber" resultType="map">
+    SELECT MIN(start_time),MAX(end_time)
+    FROM t_cart_point
+    WHERE cart_number = #{cartNumber}
+    AND point_type = 0
+    AND system = 1
+  </select>
+
+  <!--赠送点位验证城市是否一致-->
+  <select id="checkGiveWayCityParam" parameterType="map" resultType="map">
+    SELECT
+      screen_number,city
+    FROM
+      screen_media_information
+    <where>
+        <if test="screenArr != null &amp;&amp; screenArr.size() > 0">
+            AND
+            screen_number IN
+            <foreach collection="screenArr" item="item" open="(" close=")" separator=",">
+                #{item.screenNumber}
+            </foreach>
+        </if>
+        AND city NOT in (SELECT city_name FROM t_cart_point WHERE cart_number = #{cartNumber} AND point_type = 0 GROUP BY city_name)
+    </where>
+  </select>
+
+   <!--获取城市 排除选中城市-->
+   <select id="checkGiveWayCity" resultType="string">
+        SELECT
+        DISTINCT screen_number
+        FROM
+        screen_media_information
+        <where>
+            <if test="screenArr != null &amp;&amp; screenArr.size() > 0">
+                AND
+                screen_number IN
+                <foreach collection="screenArr" item="item" open="(" close=")" separator=",">
+                    #{item.screenNumber}
+                </foreach>
+            </if>
+            AND
+            city
+            NOT in
+            (SELECT city_name FROM t_cart_point WHERE cart_number = #{cartNumber} AND point_type = 0 GROUP BY city_name)
+        </where>
+   </select>
+
+  <!--添加统计-->
+  <insert id="addPointStatistics" parameterType="com.point.cart.model.PointStatistics">
+    INSERT INTO
+    t_cart_point_statistics(
+      cart_number,point_type,city_code,
+      city_name,point_number,
+      point_money,point_time,
+      city_level,number,
+      time_length,start_time,
+      end_time,satisfy,system
+    )
+    VALUES
+    <foreach collection="pointStatisticsList" item="item" separator=",">
+      (#{item.cartNumber},#{item.pointType},#{item.cityCode},
+      #{item.cityName},#{item.pointNumber},
+      #{item.pointMoney},#{item.pointTime},
+      #{item.cityLevel},#{item.number},#{item.timeLength},
+      #{item.startTime},#{item.endTime},#{item.satisfy},#{item.system})
+    </foreach>
+  </insert>
+
+  <!--删除统计下记录-->
+  <delete id="deletePointStatistics">
+    DELETE FROM
+      t_cart_point_statistics
+    WHERE
+      cart_number = #{cartNumber}
+  </delete>
+
+  <!--删除统计根据系统-->
+  <delete id="deletePointStatisticsBySystem" parameterType="map">
+     DELETE FROM
+      t_cart_point_statistics
+    WHERE
+      cart_number = #{cartNumber}
+    <if test="system != null">
+      AND system = #{system}
+    </if>
+  </delete>
+
+  <!--查询统计-->
+  <select id="searchPointStatistics" resultType="com.point.cart.model.PointStatistics">
+    SELECT * FROM t_cart_point_statistics
+    WHERE cart_number = #{cartNumber}
+    <if test="pointType != null">
+      AND point_type = #{pointType}
+    </if>
+    ORDER BY city_name
+  </select>
+
+  <!--播控查询统计-->
+  <select id="searchPointStatisticsByParam" resultType="com.point.cart.model.PointStatistics" parameterType="map">
+    SELECT * FROM t_cart_point_statistics
+    WHERE cart_number = #{cartNumber}
+    <if test="pointType != null">
+      AND point_type = #{pointType}
+    </if>
+    <if test="system != null">
+      AND system = #{system}
+    </if>
+    <if test="number != null">
+      AND number = #{number}
+    </if>
+    <if test="timeLength != null">
+      AND time_length = #{timeLength}
+    </if>
+    <if test="startTime != null">
+      AND start_time = #{startTime}
+    </if>
+    <if test="endTime != null">
+      AND end_time = #{endTime}
+    </if>
+    ORDER BY city_name
+  </select>
+
+  <!--修改购物车点位中状态-->
+  <update id="updateCartPointState" parameterType="map">
+    UPDATE
+      t_cart_point
+    SET state = 1,create_time = #{commitTime}
+    <where>
+      AND cart_point_id IN
+      <!--点位集合-->
+      <if test="cartPointIdList != null">
+        <foreach collection="cartPointIdList" item="item" open="(" close=")" separator=",">
+          #{item}
+        </foreach>
+      </if>
+      <!--点位字符串-->
+      <if test="cartPointIdArr != null">
+        (${cartPointIdArr})
+      </if>
+    </where>
+  </update>
+
+   <!--根据参数进行修改购物车状态-->
+   <update id="updateCartPointStateByParam" parameterType="map">
+      UPDATE
+        t_cart_point
+      SET state = 1
+      WHERE number = #{number}
+      AND time_length = #{timeLength}
+      AND start_time = #{startTime}
+      AND end_time = #{endTime}
+      AND point_type = #{pointType}
+   </update>
+
+  <!--根据购物车编号修改购物车状态(播控)-->
+  <update id="updateCartPointStateByCartNumber">
+    UPDATE
+    t_cart_point
+    SET state = 1
+    WHERE cart_number = #{cartNumber}
+  </update>
+
+  <!--销控查询统计总数-->
+  <select id="getStatisticsByCartNumber" resultType="map">
+    SELECT point_type pointType,
+    SUM(point_number) as number,
+    SUM(point_money) AS money
+    FROM t_cart_point_statistics
+    WHERE
+    cart_number = #{cartNumber}
+    AND
+    system = 1
+    GROUP BY point_type;
+  </select>
+
+  <!--销控合同附件中点位详情统计-->
+  <select id="contract" parameterType="map" resultType="com.point.cart.model.PointStatistics">
+    SELECT d.*,lsb.screen_name FROM(SELECT a.cart_number,a.city_name,a.number,a.time_length,a.start_time,a.end_time,
+    <!-- array_to_string(group_concat(b.screen_name), ',') AS screen_name -->
+    array_to_string(group_concat(case when b.screen_name = '上屏' THEN 0 WHEN b.screen_name = '中屏' THEN 1 WHEN b.screen_name = '下屏' THEN 2  ELSE 3 END), ',') AS screen_name
+    FROM t_cart_point a
+    INNER JOIN screen_media_information b ON a.screen_number = b.screen_number
+    WHERE a.cart_number = #{cartNumber}
+    AND a.point_type = #{pointType}
+    AND a.system = #{system}
+    GROUP BY a.cart_number,a.city_name,a.number,a.time_length,a.start_time,a.end_time
+    ORDER BY a.city_name) lsb
+    INNER JOIN t_cart_point_statistics d ON lsb.cart_number = d.cart_number
+    AND lsb.city_name = d.city_name
+    AND lsb.number = d.number
+    AND lsb.time_length = d.time_length
+    AND lsb.start_time = d.start_time
+    AND lsb.end_time = d.end_time
+  </select>
+
+  <!--拆分购物车-->
+  <select id="splitCart" resultType="map" parameterType="map">
+    SELECT number,time_length,start_time,end_time,
+    array_to_string(group_concat(a.screen_number), ',') AS screen_number
+    ,array_to_string(group_concat(case when b.dev_type = '壁挂'
+        THEN (CASE WHEN b.dev_install_model = 0 THEN 2 ELSE 3 END) ELSE
+        (CASE WHEN b.screen_name = '上屏' THEN 0 WHEN b.screen_name = '中屏' THEN 4 ELSE 1 END)	END), ',') AS screen_type
+    FROM t_cart_point a INNER JOIN screen_media_information b
+    ON a.screen_number = b.screen_number
+    WHERE a.cart_number = #{cartNumber}
+    <if test="number != null">
+      AND a.number = #{number}
+    </if>
+    <if test="timeLength != null">
+      AND a.time_length = #{timeLength}
+    </if>
+    <if test="startTime != null">
+      AND a.start_time = #{startTime}
+    </if>
+    <if test="endTime != null">
+      AND a.end_time = #{endTime}
+    </if>
+    GROUP BY number,time_length,start_time,end_time
+  </select>
+
+  <!-- 取消订单 -->
+  <update id="cancel">
+    UPDATE t_cart_point SET state = 0 WHERE cart_number = #{cartNumber}
+  </update>
+
+  <!-- 更具系统删除无效的数据 -->
+  <delete id="deleteInvalidPointCart" parameterType="map">
+    DELETE FROM t_cart_point
+    WHERE system = #{system}
+    <if test="cartNumberList != null &amp;&amp; cartNumberList.size() > 0">
+      AND cart_number NOT IN
+      <foreach collection="cartNumberList" item="item" open="(" close=")" separator=",">
+        #{item}
+      </foreach>
+    </if>
+  </delete>
+</mapper>

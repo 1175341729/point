@@ -1,0 +1,43 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<!DOCTYPE generatorConfiguration
+  PUBLIC "-//mybatis.org//DTD MyBatis Generator Configuration 1.0//EN"
+  "http://mybatis.org/dtd/mybatis-generator-config_1_0.dtd">
+  
+  <generatorConfiguration>
+  <!--<classPathEntry location="F:\mavenRepository\.m2\repository\mysql\mysql-connector-java\5.1.44\mysql-connector-java-5.1.44.jar" />-->
+    <classPathEntry location="F:\mavenRepository\.m2\repository\org\postgresql\postgresql\9.3-1102-jdbc41\postgresql-9.3-1102-jdbc41.jar" />
+  <context id="mobilecampus" targetRuntime="MyBatis3">
+
+	<jdbcConnection driverClass="org.postgresql.Driver"
+       connectionURL="jdbc:postgresql://172.16.18.37:3433/mediav2"
+			userId="media"
+			password="Dftc1234" />
+
+		<javaTypeResolver>
+			<property name="forceBigDecimals" value="false" />
+		</javaTypeResolver>
+
+	<javaModelGenerator targetPackage="com.point.cart.model" targetProject="src/main/java">
+      <property name="enableSubPackages" value="true" />
+      <property name="trimStrings" value="true" />
+    </javaModelGenerator>
+
+    <sqlMapGenerator targetPackage="xml"  targetProject="src/main/resources">
+      <property name="enableSubPackages" value="true" />
+    </sqlMapGenerator>
+
+    <javaClientGenerator type="XMLMAPPER" targetPackage="com.point.cart.mapper"  targetProject="src/main/java">
+      <property name="enableSubPackages" value="true" />
+    </javaClientGenerator>
+    <!--<table tableName="t_user_info" domainObjectName="UserInfo"></table>
+    <table tableName="t_role" domainObjectName="Role"></table>
+    <table tableName="t_user_role" domainObjectName="UserRole"></table>
+    <table tableName="t_role_permision" domainObjectName="RolePermision"></table>-->
+    <!--<table tableName="t_device_type" domainObjectName="DeviceType"></table>-->
+    <!--<table tableName="t_device_screen" domainObjectName="DeviceScreen"></table>-->
+      <!--<table tableName="t_device" domainObjectName="Device"></table>-->
+      <!---<table tableName="t_cart_point" domainObjectName="CartPoint"></table>-->
+      <table tableName="media_device_information" domainObjectName="MediaDeviceInfo"></table>
+      <!--<table tableName="media_device_abnormal_information" domainObjectName="AbnormalCartPoint"></table>-->
+	</context>
+</generatorConfiguration>

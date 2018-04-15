@@ -1,0 +1,66 @@
+<?xml version="1.0" encoding="UTF-8" ?>
+<!DOCTYPE mapper PUBLIC "-//mybatis.org//DTD Mapper 3.0//EN" "http://mybatis.org/dtd/mybatis-3-mapper.dtd" >
+<mapper namespace="com.point.cart.mapper.MediaDeviceInfoExMapper" >
+  <select id="count" parameterType="map" resultType="int">
+    SELECT COUNT(*)
+    FROM media_device_information
+    <where>
+      <if test="province != null">
+        AND province = #{province}
+      </if>
+      <if test="city != null">
+        AND city = #{city}
+      </if>
+      <if test="area != null">
+        AND area = #{area}
+      </if>
+      <if test="mac != null">
+        AND mac like #{mac}
+      </if>
+      <if test="propertyNumber != null">
+        AND property_number like #{propertyNumber}
+      </if>
+      <if test="sellerName != null">
+        AND seller_name LIKE #{sellerName}
+      </if>
+    </where>
+  </select>
+
+  <select id="selectByExampleCustom" parameterType="map" resultType="com.point.cart.message.rsp.MediaDeviceInfoRsp">
+    SELECT address AS businessAdd,seller_name AS businessName,(CASE WHEN media_resource_status = '正常' THEN 1 ELSE 0 END) AS deviceStatus,
+    (CASE WHEN dev_type = '立式' THEN 0 ELSE 1 END) AS deviceType,mac,property_number AS propertynumber
+     FROM media_device_information
+    <where>
+      <if test="province != null">
+        AND province = #{province}
+      </if>
+      <if test="city != null">
+        AND city = #{city}
+      </if>
+      <if test="area != null">
+        AND area = #{area}
+      </if>
+      <if test="mac != null">
+        AND mac like #{mac}
+      </if>
+      <if test="realMac != null">
+        AND mac = #{realMac}
+      </if>
+      <if test="propertyNumber != null">
+        AND property_number like #{propertyNumber}
+      </if>
+      <if test="sellerName != null">
+        AND seller_name LIKE #{sellerName}
+      </if>
+      <if test="state != null">
+        AND media_resource_status = '正常'
+      </if>
+    </where>
+    <if test="limit != null">
+      limit ${limit}
+    </if>
+    <if test="offset != null">
+      offset ${offset}
+    </if>
+  </select>
+</mapper>
